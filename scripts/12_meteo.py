@@ -40,7 +40,10 @@ def cache_recent():
         statut = json.load(f)
     if not statut.get("ok"):
         return False
-    age_min = (time.time() - os.path.getmtime(FICHIER_HORAIRE)) / 60
+    # On utilise la date ÉCRITE dans le statut (vraie date de récupération),
+    # pas la date du fichier : en ligne, celle-ci change quand Streamlit copie les fichiers.
+    date = datetime.strptime(statut["date_utc"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    age_min = (datetime.now(timezone.utc) - date).total_seconds() / 60
     print(f"Données météo en cache : {age_min:.0f} min")
     return age_min < CACHE_MINUTES
 

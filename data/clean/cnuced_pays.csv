@@ -1,0 +1,37 @@
+pays,code_cnuced,annee,escales,temps_median_jours,temps_median_heures
+Afrique de l'Est (région de Djibouti),5121,2018,3224.0,,
+Afrique de l'Est (région de Djibouti),5121,2019,3133.0,,
+Afrique de l'Est (région de Djibouti),5121,2020,2634.0,,
+Afrique de l'Est (région de Djibouti),5121,2021,2370.0,,
+Afrique de l'Est (région de Djibouti),5121,2022,2302.0,,
+Afrique de l'Est (région de Djibouti),5121,2023,3186.0,,
+Chine,156,2018,71535.0,0.62,14.9
+Chine,156,2019,72583.0,0.6,14.4
+Chine,156,2020,74413.0,0.62,14.9
+Chine,156,2021,70506.0,0.73,17.5
+Chine,156,2022,70377.0,0.74,17.7
+Chine,156,2023,80095.0,0.6,14.5
+Monde,0000,2018,454016.0,0.7,16.8
+Monde,0000,2019,474553.0,0.69,16.6
+Monde,0000,2020,459417.0,0.71,17.0
+Monde,0000,2021,446589.0,0.8,19.3
+Monde,0000,2022,438821.0,0.8,19.3
+Monde,0000,2023,486782.0,0.71,17.0
+Pays-Bas,528,2018,12309.0,0.78,18.7
+Pays-Bas,528,2019,12155.0,0.8,19.2
+Pays-Bas,528,2020,11595.0,0.8,19.2
+Pays-Bas,528,2021,11516.0,0.89,21.3
+Pays-Bas,528,2022,10682.0,0.87,20.9
+Pays-Bas,528,2023,10104.0,0.8,19.2
+Singapour,702,2018,,,
+Singapour,702,2019,,,
+Singapour,702,2020,,,
+Singapour,702,2021,,,
+Singapour,702,2022,14553.0,0.91,21.8
+Singapour,702,2023,16854.0,0.85,20.5
+États-Unis,842,2018,19817.0,1.0,24.0
+États-Unis,842,2019,20820.0,1.02,24.6
+États-Unis,842,2020,20037.0,1.03,24.8
+États-Unis,842,2021,18816.0,1.25,30.0
+États-Unis,842,2022,17638.0,1.4,33.6
+États-Unis,842,2023,19418.0,1.08,26.0

@@ -1,0 +1,4 @@
+serie,dernier_mois_connu,dernier_total,mois_prevu,modele,prevision,mae,borne_basse,borne_haute,mae_pct,mae_naif_saisonnier,mae_saisonnier_tendance,mae_moyenne_3_mois
+Long Beach,2026-09-01,981436,2026-10-01,moyenne 3 mois,932721,52025,880696,984746,6.3,79102,78263,52025
+Los Angeles,2026-10-01,1026872,2026-11-01,moyenne 3 mois,1008477,59914,948563,1068391,6.7,89584,89912,59914
+San Pedro Bay,2026-09-01,2024088,2026-10-01,moyenne 3 mois,1919062,104424,1814638,2023486,6.1,150115,151999,104424

@@ -57,6 +57,79 @@ def nombre(x, decimales=0):
     return f"{x:,.{decimales}f}".replace(",", " ").replace(".", ",")
 
 
+# =====================================================================
+# 1 bis) ACTUALISATION AUTOMATIQUE DU DIRECT (AIS + météo)
+#   Le tableau de bord relance lui-même les scripts quand les données sont trop vieilles.
+#   Les scripts tournent EN ARRIÈRE-PLAN : l'affichage n'est jamais bloqué.
+# =====================================================================
+import subprocess
+import sys
+
+AGE_MAX_METEO = 60   # minutes (même règle que le cache du script météo)
+AGE_MAX_AIS = 15     # minutes (fréquence prévue dans la fiche de conception)
+
+
+@st.cache_resource
+def taches():
+    """Processus en cours, partagés par tous les visiteurs (un seul lancement à la fois)."""
+    return {}
+
+
+def en_cours(nom):
+    p = taches().get(nom)
+    return p is not None and p.poll() is None
+
+
+def age_minutes(chemin):
+    d = date_fichier(chemin)
+    return float("inf") if d is None else (datetime.now(timezone.utc) - d).total_seconds() / 60
+
+
+def environnement_avec_cle():
+    """Copie de l'environnement + la clé AIS rangée dans les Secrets de Streamlit (en ligne).
+    En local, le script lit la clé dans le fichier .env : rien à faire ici."""
+    env = os.environ.copy()
+    try:
+        if "AISSTREAM_API_KEY" in st.secrets:
+            env["AISSTREAM_API_KEY"] = st.secrets["AISSTREAM_API_KEY"]
+    except Exception:
+        pass   # pas de fichier de secrets (cas normal en local)
+    return env
+
+
+def lancer(nom, script):
+    """Lance un script en arrière-plan, sauf s'il tourne déjà."""
+    if en_cours(nom):
+        return False
+    taches()[nom] = subprocess.Popen([sys.executable, script], env=environnement_avec_cle(),
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return True
+
+
+# Quand un script vient de finir : on vide le cache pour relire les nouveaux fichiers
+for p in taches().values():
+    if p.poll() is not None and not getattr(p, "deja_vu", False):
+        p.deja_vu = True
+        st.cache_data.clear()
+
+# Bouton pour forcer l'actualisation
+with st.sidebar:
+    st.markdown("**Données en direct**")
+    forcer = st.button("🔄 Actualiser le direct")
+    st.caption("Météo relancée automatiquement après 60 min, AIS après 15 min. "
+               "L'écoute AIS dure environ 3 min : rechargez la page ensuite.")
+
+# On regarde la date du DERNIER ESSAI (fichier de statut) : pas de relance en boucle si la source est en panne
+if forcer or age_minutes(f"{LIVE}/meteo_statut.json") > AGE_MAX_METEO:
+    if lancer("meteo", "scripts/12_meteo.py"):
+        st.toast("🔄 Météo : actualisation lancée")
+if forcer or age_minutes(f"{LIVE}/ais_statut.json") > AGE_MAX_AIS:
+    if lancer("ais", "scripts/10_ais.py"):
+        st.toast("🔄 AIS : écoute lancée (environ 3 min)")
+if en_cours("ais"):
+    st.sidebar.info("Écoute AIS en cours…")
+
+
 teu = lire_csv(f"{CLEAN}/san_pedro_teu_mensuel.csv", dates=["date"])
 prev = lire_csv(f"{CLEAN}/prevision_teu.csv")
 cppi = lire_csv(f"{CLEAN}/cppi_ports.csv")
@@ -200,7 +273,7 @@ with c4:
         nb = int((ais["statut"] == "au mouillage").sum())
         ok = bool(ais_statut and ais_statut.get("ok"))
         tuile("Navires au mouillage (AIS)",
-                            f"{nb} navire{'s' if nb > 1 else ''}",
+              f"{nb} navire{'s' if nb > 1 else ''}",
               f"sur {len(ais)} navires dans la zone · seuil : médiane 7 j + 2σ (historique en constitution)",
               "" if ok else "⚠ AIS indisponible : dernière liste connue",
               f"Mis à jour {age_texte(date_fichier(f'{LIVE}/ais_navires.csv'))} · Source : aisstream.io",
@@ -291,7 +364,6 @@ else:
                       f"{nombre(var, 1)} % sur un an" if var is not None else None)
             st.caption(f"Part de San Pedro Bay : {nombre(v / total_sp * 100, 0)} %")
 
-
 st.divider()
 
 # =====================================================================
@@ -376,7 +448,7 @@ with col_cnuced:
                    "(vérifié le 19/11/2026). Voir le CPPI à gauche, où Djibouti figure.", icon="ℹ️")
         st.caption(f"Barres claires : {derniere_an - 1} · foncées : {derniere_an} (dernière année publiée). "
                    "Chiffres par PAYS : « États-Unis » = tous les ports américains. Source : CNUCED, UNCTADstat.")
-    
+
 st.divider()
 
 # =====================================================================
@@ -420,7 +492,7 @@ with col_carte:
                 hovertemplate=("<b>%{customdata[0]}</b><br>%{customdata[1]}<br>"
                                "Vitesse : %{customdata[2]} nœuds<br>Destination : %{customdata[3]}"
                                "<extra>" + statut + "</extra>")))
-            fig.update_layout(map=dict(style="open-street-map", center=dict(lat=33.73, lon=-118.22), zoom=11.3),
+        fig.update_layout(map=dict(style="open-street-map", center=dict(lat=33.73, lon=-118.22), zoom=11.3),
                           height=430, margin=dict(l=0, r=0, t=0, b=0),
                           legend=dict(orientation="h", y=-0.02, bgcolor="rgba(255,255,255,0.8)"))
         st.plotly_chart(fig, use_container_width=True)
@@ -464,7 +536,7 @@ with col_meteo:
         st.plotly_chart(fig, use_container_width=True)
         st.caption(f"Heure locale du port (Los Angeles). Seuil vagues : 2 m (hypothèse). "
                    f"Mis à jour {age_texte(date_fichier(f'{LIVE}/meteo_horaire.csv'))} · Source : Open-Meteo.")
-        
+
 st.divider()
 
 # =====================================================================

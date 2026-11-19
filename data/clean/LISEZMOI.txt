@@ -1,0 +1,1 @@
+Données nettoyées lues par le tableau de bord.

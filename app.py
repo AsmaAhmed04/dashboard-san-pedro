@@ -40,6 +40,28 @@ def date_fichier(chemin):
     return datetime.fromtimestamp(os.path.getmtime(chemin), tz=timezone.utc)
 
 
+def date_recuperation(chemin_statut, chemin_donnees):
+    """Vraie date de la dernière récupération réussie, lue DANS le fichier de statut.
+    (En ligne, la date des fichiers est celle de leur copie par Streamlit : trompeuse.)"""
+    try:
+        with open(chemin_statut, encoding="utf-8") as f:
+            statut = json.load(f)
+        if statut.get("ok"):
+            return datetime.strptime(statut["date_utc"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except Exception:
+        pass
+    return date_fichier(chemin_donnees)   # secours : date du fichier
+
+
+def date_dernier_essai(chemin_statut):
+    """Date du dernier essai (réussi ou non), pour décider s'il faut relancer un script."""
+    try:
+        with open(chemin_statut, encoding="utf-8") as f:
+            return datetime.strptime(json.load(f)["date_utc"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
 def age_texte(dt):
     """'il y a 12 min', 'il y a 3 h', 'il y a 2 j'."""
     if dt is None:
@@ -80,8 +102,8 @@ def en_cours(nom):
     return p is not None and p.poll() is None
 
 
-def age_minutes(chemin):
-    d = date_fichier(chemin)
+def age_minutes(chemin_statut):
+    d = date_dernier_essai(chemin_statut)
     return float("inf") if d is None else (datetime.now(timezone.utc) - d).total_seconds() / 60
 
 
@@ -198,13 +220,14 @@ def badge(nom, ok, detail):
 
 
 badges = [
-    badge("EVP LA/LB", teu is not None, age_texte(date_fichier(f"{CLEAN}/san_pedro_teu_mensuel.csv"))),
+    badge("EVP LA/LB", teu is not None,
+          f"jusqu'à {teu['date'].max():%m/%Y}" if teu is not None else "indisponible"),
     badge("CPPI", cppi is not None, "éditions 2024-2025"),
     badge("CNUCED", cnuced is not None, "données 2018-2023"),
     badge("AIS", bool(ais_statut and ais_statut.get("ok")),
-          age_texte(date_fichier(f"{LIVE}/ais_navires.csv"))),
+          age_texte(date_recuperation(f"{LIVE}/ais_statut.json", f"{LIVE}/ais_navires.csv"))),
     badge("Météo", bool(meteo_statut and meteo_statut.get("ok")),
-          age_texte(date_fichier(f"{LIVE}/meteo_horaire.csv"))),
+          age_texte(date_recuperation(f"{LIVE}/meteo_statut.json", f"{LIVE}/meteo_horaire.csv"))),
 ]
 st.markdown("".join(badges), unsafe_allow_html=True)
 st.write("")
@@ -276,7 +299,7 @@ with c4:
               f"{nb} navire{'s' if nb > 1 else ''}",
               f"sur {len(ais)} navires dans la zone · seuil : médiane 7 j + 2σ (historique en constitution)",
               "" if ok else "⚠ AIS indisponible : dernière liste connue",
-              f"Mis à jour {age_texte(date_fichier(f'{LIVE}/ais_navires.csv'))} · Source : aisstream.io",
+              f"Mis à jour {age_texte(date_recuperation(f'{LIVE}/ais_statut.json', f'{LIVE}/ais_navires.csv'))} · Source : aisstream.io",
               "#c53030", "" if ok else "vigilance")
 
 # --- Tuile 5 : alerte météo 48 h ---
@@ -294,7 +317,7 @@ with c5:
               f"(seuil 2 m)",
               f"{texte_niv} · pic le {meteo['heure_rafales_max'][8:10]}/{meteo['heure_rafales_max'][5:7]} "
               f"à {meteo['heure_rafales_max'][11:]} (heure du port)",
-              f"Mis à jour {age_texte(date_fichier(f'{LIVE}/meteo_horaire.csv'))} · Source : Open-Meteo",
+              f"Mis à jour {age_texte(date_recuperation(f'{LIVE}/meteo_statut.json', f'{LIVE}/meteo_horaire.csv'))} · Source : Open-Meteo",
               "#dd6b20" if (niv != "normal" or proche) else "#2f855a",
               "" if niv == "normal" else niv)
 
@@ -472,7 +495,7 @@ with col_carte:
             st.warning(f"⚠ AIS indisponible lors de la dernière écoute "
                        f"({(ais_statut or {}).get('erreur', 'erreur inconnue')}). "
                        f"Affichage de la dernière liste connue, "
-                       f"{age_texte(date_fichier(f'{LIVE}/ais_navires.csv'))}.")
+                       f"{age_texte(date_recuperation(f'{LIVE}/ais_statut.json', f'{LIVE}/ais_navires.csv'))}.")
 
         # Filtre par type de navire
         types = sorted(ais["type"].dropna().unique())
@@ -498,7 +521,7 @@ with col_carte:
         st.plotly_chart(fig, use_container_width=True)
         st.caption(f"{len(d)} navires affichés · écoute de "
                    f"{(ais_statut or {}).get('duree_ecoute_s', '?')} s, "
-                   f"{age_texte(date_fichier(f'{LIVE}/ais_navires.csv'))} · Source : aisstream.io. "
+                   f"{age_texte(date_recuperation(f'{LIVE}/ais_statut.json', f'{LIVE}/ais_navires.csv'))} · Source : aisstream.io. "
                    "Couverture gratuite incomplète ; statut saisi par l'équipage.")
 
 with col_meteo:
@@ -508,7 +531,7 @@ with col_meteo:
     else:
         if not (meteo_statut and meteo_statut.get("ok")):
             st.warning(f"⚠ Météo indisponible lors du dernier appel. Dernières données connues, "
-                       f"{age_texte(date_fichier(f'{LIVE}/meteo_horaire.csv'))}.")
+                       f"{age_texte(date_recuperation(f'{LIVE}/meteo_statut.json', f'{LIVE}/meteo_horaire.csv'))}.")
 
         m1, m2, m3 = st.columns(3)
         m1.metric("Vent", f"{nombre(meteo['vent_kmh'])} km/h")
@@ -535,7 +558,7 @@ with col_meteo:
                           legend=dict(orientation="h", y=-0.2), separators=", ")
         st.plotly_chart(fig, use_container_width=True)
         st.caption(f"Heure locale du port (Los Angeles). Seuil vagues : 2 m (hypothèse). "
-                   f"Mis à jour {age_texte(date_fichier(f'{LIVE}/meteo_horaire.csv'))} · Source : Open-Meteo.")
+                   f"Mis à jour {age_texte(date_recuperation(f'{LIVE}/meteo_statut.json', f'{LIVE}/meteo_horaire.csv'))} · Source : Open-Meteo.")
 
 st.divider()
 
@@ -605,7 +628,7 @@ if ais is not None:
         recos.append((4, "🟢 Pas de file d'attente notable",
                       "Maintenir les heures d'arrivée prévues.",
                       f"{nb_mouillage} navire(s) au mouillage lors de la dernière écoute AIS "
-                      f"({age_texte(date_fichier(f'{LIVE}/ais_navires.csv'))}) ; seuil provisoire : {SEUIL_MOUILLAGE}."))
+                      f"({age_texte(date_recuperation(f'{LIVE}/ais_statut.json', f'{LIVE}/ais_navires.csv'))}) ; seuil provisoire : {SEUIL_MOUILLAGE}."))
 
 # --- Affichage : la plus prioritaire en premier, avec boutons Valider / Refuser ---
 def enregistrer_decision(titre, decision):
